@@ -23,6 +23,12 @@ export default class CreateCompanyInputDto {
   @IsNumberString()
   cnpj: string;
 
+  constructor(name: string = '', email: string = '', cnpj: string = '') {
+    this.name = name;
+    this.email = email;
+    this.cnpj = cnpj;
+  }
+
   toUseCaseInput(): CreateCompanyUseCaseInput {
     return new CreateCompanyUseCaseInput(this.name, this.email, this.cnpj);
   }

@@ -1,27 +1,51 @@
-import { Body, Controller, Inject, Post } from '@nestjs/common';
-import { CreateCompanyUseCaseToken } from 'src/app.tokens';
-import IUseCase from 'src/domain/interfaces/base.usecase.interface';
-import CreateCompanyUseCaseInput from 'src/usecases/company/input/create.company.usecase.input';
-import CreateCompanyUseCaseOutput from 'src/usecases/company/output/create.company.usecase.output';
-import CreateCompanyInputDto from './input/create.company.input.dto';
-import CreateCompanyOutputDto from './output/create.company.output.dto';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import Company from '../domain/entities/company.entity';
+import Employee from '../domain/entities/employee.entity';
 
 @Controller('company')
 export class CompanyController {
   constructor(
-    @Inject(CreateCompanyUseCaseToken)
-    private readonly createCompanyUseCase: IUseCase<
-      CreateCompanyUseCaseInput,
-      CreateCompanyUseCaseOutput
-    >,
+    @InjectRepository(Company)
+    private companyRepository: Repository<Company>,
+    @InjectRepository(Employee)
+    private employeeRepository: Repository<Employee>,
   ) {}
 
   @Post()
-  async createCompany(
-    @Body() input: CreateCompanyInputDto,
-  ): Promise<CreateCompanyOutputDto> {
-    const useCaseInput = input.toUseCaseInput();
-    const useCaseOutput = await this.createCompanyUseCase.run(useCaseInput);
-    return CreateCompanyOutputDto.fromUseCaseOutput(useCaseOutput);
+  async createCompany(@Body() company: Company) {
+    const existingCompany = await this.companyRepository.findOne({
+      where: { cnpj: company.cnpj },
+    });
+
+    if (existingCompany) {
+      throw new BadRequestException('Empresa com este CNPJ já existe');
+    }
+
+    return this.companyRepository.save(company);
+  }
+
+  @Get(':companyId/employees')
+  async getCompanyEmployees(@Param('companyId') companyId: number) {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    return this.employeeRepository.find({
+      where: { companyId: companyId },
+    });
   }
 }
